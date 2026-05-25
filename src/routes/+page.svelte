@@ -125,7 +125,7 @@
 <div class="container">
   <header>
     <h1>📦 Gudang Elektronik Arlettaa</h1>
-    <p class="subtitle">Generator Pengelolaan & Analisis Stok Gudang Terintegrasi</p>
+    <p class="subtitle">Generator Pengelolaan dan Analisis Stok Gudang Terintegrasi</p>
   </header>
 
   <div class="grid-layout">
