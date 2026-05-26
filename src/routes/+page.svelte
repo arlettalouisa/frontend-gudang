@@ -1,4 +1,6 @@
 <script>
+  import { onMount } from 'svelte';
+
   // 1. Variabel Reaktif Svelte 5 (Runes) untuk Form Input
   let nama = $state('Laptop');
   let kategori = $state('elektronik');
@@ -41,7 +43,7 @@
     }
   });
 
-  // 4. EFEK SVELTE 5: Simpan ke Local Storage otomatis tiap kali ada perubahan
+  // 4. EFEK SVELTE 5: Simpan ke Local Storage otomatis tiap kali ada perubahan form & list
   $effect(() => {
     const formToSave = { nama, kategori, stok, hargaSatuan, minimumStok, terjualBulanIni, hariDalamBulan };
     localStorage.setItem('data_form_gudang', JSON.stringify(formToSave));
@@ -60,19 +62,47 @@
     }, 3000);
   }
 
-  // 5. Fungsi panggil backend + Masukin ke tabel
-  async function hitungDanTambahStok() {
+  // 5. SEKARANG 100% MANDIRI DI FRONTEND (TIDAK PERLU SERVER.JS)
+  function hitungDanTambahStok() {
     loading = true;
-    try {
-      const response = await fetch('http://localhost:3000/api/hitung-stok', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nama, kategori, stok, hargaSatuan, minimumStok, terjualBulanIni, hariDalamBulan })
-      });
 
-      if (response.ok) {
-        hasilLaporan = await response.json();
+    // Simulasi efek loading sebentar agar animasi tombol tetap keren
+    setTimeout(() => {
+      try {
+        // --- LOGIKA ANALISIS STOK YANG TADINYA DI BACKEND ---
+        const rataRataPenjualanHari = (terjualBulanIni / (hariDalamBulan || 30)).toFixed(2);
+        const estimasiStok30Hari = Math.max(0, stok - terjualBulanIni);
+        const totalNilaiStok = stok * hargaSatuan;
         
+        // Logika Status dan Peringatan keselamatan stok
+        let status = 'Stok Aman';
+        let peringatan = 'Persediaan barang di gudang dalam kondisi stabil.';
+        let reorderQuantity = 0;
+
+        if (stok <= 0) {
+          status = '⚠️ Stok Habis!';
+          peringatan = 'Segera lakukan pemesanan ulang! Stok kosong.';
+          reorderQuantity = minimumStok * 2;
+        } else if (stok <= minimumStok) {
+          status = '🚨 Status Kritis (Reorder)';
+          peringatan = 'Jumlah barang sudah mencapai batas minimum batas stok.';
+          reorderQuantity = (minimumStok * 2) - stok;
+        }
+
+        // Bikin objek hasil laporan tiruan sesuai output terminal Anda
+        hasilLaporan = {
+          nama,
+          kategori,
+          stok,
+          totalNilaiStok,
+          rataRataPenjualanHari,
+          estimasiStok30Hari,
+          minimumStok,
+          status,
+          reorderQuantity,
+          peringatan
+        };
+
         // BIKIN PRODUK BARU & MASUKIN KE DAFTAR TABEL
         const produkBaru = {
           id: Date.now(),
@@ -86,21 +116,21 @@
         daftarProduk = [produkBaru, ...daftarProduk];
         triggerToast(`✅ ${nama} berhasil ditambahkan ke gudang!`);
 
-      } else {
-        alert('Gagal terhubung ke backend server');
+      } catch (error) {
+        console.error(error);
+        alert('Terjadi kesalahan saat menghitung data.');
+      } finally {
+        loading = false;
       }
-    } catch (error) {
-      console.error(error);
-      alert('Pastikan server.js backend kamu masih berjalan!');
-    } finally {
-      loading = false;
-    }
+    }, 400); // ditahan 0.4 detik agar animasi memproses data terlihat natural
   }
 
-  // 6. Fungsi menghapus baris tabel
+  // 6. Fungsi menghapus baris tabel + otomatis update localStorage karena $effect
   function hapusProduk(id, namaProd) {
-    daftarProduk = daftarProduk.filter(p => p.id !== id);
-    triggerToast(`🗑️ ${namaProd} dihapus dari gudang.`);
+    if (confirm(`Apakah Anda yakin ingin menghapus ${namaProd}?`)) {
+      daftarProduk = daftarProduk.filter(p => p.id !== id);
+      triggerToast(`🗑️ ${namaProd} dihapus dari gudang.`);
+    }
   }
 
   // 7. Fungsi reset form ke default
